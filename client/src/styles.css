@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+@layer base {
+  :root { color-scheme: light dark; }
+}
+
+@layer utilities {
+  .bg-grid {
+    background-image:
+      linear-gradient(to right, rgb(0 0 0 / 0.06) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(0 0 0 / 0.06) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  .bg-grid-dark {
+    background-image:
+      linear-gradient(to right, rgb(255 255 255 / 0.07) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(255 255 255 / 0.07) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  @keyframes floaty {
+    0%, 100% { transform: translateY(0) translateX(0); }
+    50% { transform: translateY(-12px) translateX(6px); }
+  }
+  .animate-floaty { animation: floaty 8s ease-in-out infinite; }
+
+  @keyframes gradientMove {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  .animate-gradient {
+    background-size: 200% 200%;
+    animation: gradientMove 8s ease infinite;
+  }
+
+  @keyframes dash {
+    to { stroke-dashoffset: 0; }
+  }
+  .animate-dash {
+    stroke-dasharray: 6 6;
+    stroke-dashoffset: 60;
+    animation: dash 2s ease forwards;
+  }
+}
+
+
