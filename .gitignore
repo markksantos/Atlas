@@ -3,6 +3,13 @@
 .env.local
 .env.*.local
 
+# Local data / DBs (may contain secrets — never commit)
+.data/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.db
+
 # Dependencies
 node_modules/
 
