@@ -98,7 +98,7 @@ function lastUserMessage(messages: { who: "user" | "assistant"; text: string }[]
   return messages[messages.length - 1]?.text ?? "";
 }
 
-function rankByHeuristics(prompt: string, results: ProviderResult[]): ProviderResult[] {
+export function rankByHeuristics(prompt: string, results: ProviderResult[]): ProviderResult[] {
   // Simple heuristic: prefer longer but not too long, penalize repeated tokens
   const scored = results.map(r => ({
     result: r,
@@ -125,7 +125,7 @@ function jaccardSimilarity(a: Set<string>, b: Set<string>): number {
   return inter / union;
 }
 
-function repetitionRate(text: string): number {
+export function repetitionRate(text: string): number {
   const words = text.toLowerCase().split(/[^a-z0-9]+/g).filter(Boolean);
   if (words.length === 0) return 0;
   const freq: Record<string, number> = {};
