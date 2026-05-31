@@ -204,3 +204,68 @@ What still remains (none blocking a deploy):
 - The `@google/generative-ai` SDK is the legacy package (still works for current
   Gemini models); a future bump to `@google/genai` would be cleaner.
 - No `Dockerfile` / CI yet (see NEEDS FROM MARK).
+
+---
+
+## QA Verification
+
+**Reviewer:** Independent QA subagent (not the build author)
+**Date:** 2026-05-31
+
+### Commands run
+
+```bash
+npm run typecheck   # tsc --noEmit
+npm test            # vitest run
+npm run build       # vite build → dist/
+# Boot production server on alternate port and hit health + SPA root:
+NODE_ENV=production PORT=4001 ./node_modules/.bin/tsx server/index.ts &
+curl http://localhost:4001/api/health   # → {"ok":true}
+curl -o /dev/null -w "%{http_code}" http://localhost:4001/   # → 200
+npm audit           # → 0 vulnerabilities
+```
+
+### Results
+
+| Check | Result |
+|---|---|
+| `npm run typecheck` | PASS — exit 0, no errors |
+| `npm test` (13 tests) | PASS — 13/13 tests across pricing.test.ts and orchestrator.test.ts |
+| `npm run build` | PASS — 1666 modules, dist/index.html + assets/index-*.css/js produced (~231 KB JS, ~72 KB gzip) |
+| Production server boots | PASS — `[server] listening on :4001 (production)`, `/api/health` → `{"ok":true}` |
+| SPA served at root in production | PASS — HTTP 200 from `/` in production mode |
+| `npm audit` | PASS — 0 vulnerabilities |
+| Git status | CLEAN — working tree clean, 4 local commits ahead of origin (not pushed) |
+
+### Claim verification
+
+All worklog claims independently confirmed:
+
+- **minDurationSec default**: confirmed as `0` in `server/index.ts:64` (was 120).
+- **rounds default**: confirmed as `2` in `server/index.ts:63` (was 4).
+- **Critique-leak fix**: `buildRoundMessages` in `orchestrator.ts:157-159` has the explicit "Return ONLY the final answer, do not mention drafts/critiques" instruction.
+- **Production static serving**: `server/index.ts:109-118` — `existsSync(distDir)` guard, `express.static(distDir)` + non-`/api` catch-all confirmed present.
+- **Pricing module**: `server/lib/pricing.ts` — `costForResult`/`totalCostUsd` implemented; OpenAI-only price table, others return $0 (intentional).
+- **Runs page debounced search**: `client/src/atlas-single-file.tsx:413-421` — 250 ms `setTimeout` with `clearTimeout` cleanup confirmed.
+- **Open Chat CTA fix**: `setRoute` lifted into `AppProvider` context at line 194; `AboutPage` retrieves via `useApp()` at line 609; CTA at line 742 calls `setRoute("chat")`.
+- **formatCost**: present at line 396 in client.
+- **GOOGLE_API_KEY**: README and `server/lib/providers.ts` agree on this var name (worklog's stated fix confirmed).
+- **.gitignore hardening**: `node_modules/`, `dist/`, `.data/`, `.env*`, `.DS_Store` all present.
+
+### Discrepancies found
+
+None. All claims in the build agent's self-report are accurate and verifiable in the code and output.
+
+### Fixes applied
+
+None required — no build-breaking issues found.
+
+### Remaining issues (carry-forward from build agent, not regressions)
+
+- Settings page uses `alert()`/`location.reload()` for save/clear (functional but crude).
+- `tools`, `safety`, `showWork` toggles are UI-only; server ignores them.
+- Cost estimates cover OpenAI only (Anthropic/Google/secondary providers contribute $0).
+- No Dockerfile or CI pipeline.
+- Anthropic key on this machine has insufficient credit — Claude calls fail at billing, not in code.
+- `@google/generative-ai` is the legacy SDK (still works; future upgrade path exists).
+- `browserslist` data is 9 months old (vite build warning; cosmetic, does not break anything).
