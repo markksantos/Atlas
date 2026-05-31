@@ -66,12 +66,12 @@ export async function orchestrateChat({ db, body, onEvent }: { db: DB; body: Cha
 
   // persist run
   try {
-    saveRun(db, { prompt: userPrompt, models, finalText: synthesized, candidates: ranked, costCents: 0, status: "done" });
-  } catch {}
+    saveRun(db, { prompt: userPrompt, models, finalText: synthesized, candidates: latest, costCents: 0, status: "done" });
+  } catch (err) {
+    console.error("[orchestrator] failed to persist run", err);
+  }
 
   onEvent("final", { text: synthesized, candidates: latest, errors, rounds: rounds.map(r => ({ round: r.index, top: r.candidates[0]?.text ?? "" })) });
-  // end of stream marker to help clients close cleanly
-  onEvent("done", { ok: true });
 }
 
 function lastUserMessage(messages: { who: "user" | "assistant"; text: string }[]): string {

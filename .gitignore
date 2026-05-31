@@ -27,3 +27,28 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Local runtime data (SQLite DB, generated zips)
+.data/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / editor cruft
+.DS_Store
+*.swp
+.idea/
+.vscode/

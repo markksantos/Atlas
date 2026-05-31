@@ -46,11 +46,11 @@ export type RunRow = {
   status: string;
 };
 
-export function saveRun(db: DB, run: { prompt: string; models: string[]; finalText: string; candidates: unknown; costCents?: number; status?: string }): number {
+export function saveRun(db: DB, run: { prompt: string; models: string[]; finalText: string; candidates?: unknown; costCents?: number; status?: string }): number {
   const stmt = db.prepare(
     "insert into runs(prompt, models, final_text, candidates_json, cost_cents, status) values(?, ?, ?, ?, ?, ?)"
   );
-  const info = stmt.run(run.prompt, JSON.stringify(run.models), run.finalText, JSON.stringify(run.candidates), run.costCents ?? 0, run.status ?? "done");
+  const info = stmt.run(run.prompt, JSON.stringify(run.models), run.finalText, JSON.stringify(run.candidates ?? null), run.costCents ?? 0, run.status ?? "done");
   return Number(info.lastInsertRowid);
 }
 
@@ -59,13 +59,13 @@ export function listRuns(db: DB, opts: { query?: string; limit?: number; offset?
   const offset = opts.offset ?? 0;
   const q = opts.query?.trim();
   if (q) {
-    const stmt = db.prepare<RunRow>(
+    const stmt = db.prepare(
       "select * from runs where prompt like ? order by id desc limit ? offset ?"
     );
-    return stmt.all(`%${q}%`, limit, offset) as unknown as RunRow[];
+    return stmt.all(`%${q}%`, limit, offset) as RunRow[];
   }
-  const stmt = db.prepare<RunRow>("select * from runs order by id desc limit ? offset ?");
-  return stmt.all(limit, offset) as unknown as RunRow[];
+  const stmt = db.prepare("select * from runs order by id desc limit ? offset ?");
+  return stmt.all(limit, offset) as RunRow[];
 }
 
 export function clearRuns(db: DB) {

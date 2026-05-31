@@ -1,25 +1,36 @@
 {
-  "name": "project",
+  "name": "atlas",
   "version": "1.0.0",
-  "main": "index.js",
+  "private": true,
+  "type": "module",
+  "description": "Multi-model AI orchestrator: fan out a prompt to OpenAI, Anthropic, Google, xAI, DeepSeek and more, then judge and synthesize one clean answer.",
+  "author": "Mark Santos",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
-    "dev": "concurrently \"tsx server/index.ts\" \"vite\"",
+    "dev": "concurrently -n server,client -c blue,magenta \"tsx watch server/index.ts\" \"vite\"",
     "server": "tsx server/index.ts",
     "client": "vite",
     "build": "vite build",
-    "preview": "vite preview",
+    "start": "NODE_ENV=production tsx server/index.ts",
+    "preview": "npm run build && npm run start",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
-  "type": "module",
+  "keywords": [
+    "ai",
+    "llm",
+    "orchestration",
+    "openai",
+    "anthropic",
+    "gemini",
+    "multi-model"
+  ],
   "dependencies": {
     "@anthropic-ai/sdk": "^0.59.0",
     "@google/generative-ai": "^0.24.1",
     "archiver": "^7.0.1",
-    "axios": "^1.11.0",
     "better-sqlite3": "^12.2.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.1",
@@ -32,6 +43,9 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.11",
+    "@types/archiver": "7.0.0",
+    "@types/better-sqlite3": "7.6.13",
+    "@types/cors": "2.8.19",
     "@types/express": "^5.0.3",
     "@types/node": "^24.2.1",
     "@types/react": "^19.1.9",
