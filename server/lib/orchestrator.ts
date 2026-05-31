@@ -1,6 +1,7 @@
 import type { DB } from "./db.js";
 import { saveRun } from "./db.js";
 import { providerForModel, type ProviderResult } from "./providers.js";
+import { totalCostUsd } from "./pricing.js";
 
 type ChatBody = {
   messages: { who: "user" | "assistant"; text: string }[];
@@ -19,6 +20,8 @@ export async function orchestrateChat({ db, body, onEvent }: { db: DB; body: Cha
   const startedAt = Date.now();
   const errors: { model: string; message: string }[] = [];
   const rounds: { index: number; candidates: ProviderResult[] }[] = [];
+  // Every successful call in every round, used for the cost estimate.
+  const allResults: ProviderResult[] = [];
 
   // Multi-round: generate -> (optional debate/critique) -> revise -> score
   for (let round = 1; round <= body.params.rounds; round++) {
@@ -48,9 +51,17 @@ export async function orchestrateChat({ db, body, onEvent }: { db: DB; body: Cha
     }));
 
     onEvent("status", { stage: "evaluate", count: results.length, round });
+    allResults.push(...results);
     const ok = results.filter(r => r && typeof r.text === 'string' && r.text.trim().length > 0);
     const ranked = rankByHeuristics(userPrompt, ok);
     rounds.push({ index: round, candidates: ranked });
+
+    // Soft cost cap: stop launching further rounds once the running token
+    // spend exceeds the user's budget. The current round still completes.
+    if (body.params.costCapUsd > 0 && totalCostUsd(allResults) >= body.params.costCapUsd) {
+      onEvent("status", { stage: "cost-cap", round, costUsd: totalCostUsd(allResults), capUsd: body.params.costCapUsd });
+      break;
+    }
 
     // If we have a minimum duration, wait until time budget is met
     const elapsed = (Date.now() - startedAt) / 1000;
@@ -64,14 +75,20 @@ export async function orchestrateChat({ db, body, onEvent }: { db: DB; body: Cha
   const latest = rounds[rounds.length - 1]?.candidates ?? [];
   const synthesized = synthesizeAnswer(userPrompt, latest, errors);
 
+  // Cost estimate across every round. Stored as cents; kept fractional so
+  // sub-cent runs (a few hundred tokens) don't collapse to $0.00. SQLite's
+  // dynamic typing stores the float fine in the `cost_cents` column.
+  const costUsd = totalCostUsd(allResults);
+  const costCents = costUsd * 100;
+
   // persist run
   try {
-    saveRun(db, { prompt: userPrompt, models, finalText: synthesized, candidates: latest, costCents: 0, status: "done" });
+    saveRun(db, { prompt: userPrompt, models, finalText: synthesized, candidates: latest, costCents, status: "done" });
   } catch (err) {
     console.error("[orchestrator] failed to persist run", err);
   }
 
-  onEvent("final", { text: synthesized, candidates: latest, errors, rounds: rounds.map(r => ({ round: r.index, top: r.candidates[0]?.text ?? "" })) });
+  onEvent("final", { text: synthesized, candidates: latest, errors, costUsd, rounds: rounds.map(r => ({ round: r.index, top: r.candidates[0]?.text ?? "" })) });
 }
 
 function lastUserMessage(messages: { who: "user" | "assistant"; text: string }[]): string {
@@ -122,12 +139,26 @@ function buildRoundMessages(base: { who: "user" | "assistant"; text: string }[],
   if (history.length === 0) return msgs;
   const last = history[history.length - 1]!;
   const best = last.candidates[0]?.text ?? "";
-  // Self-critique prompt
-  msgs.push({ role: "assistant", content: `Previous best draft:\n\n${best}\n\nCritique the weaknesses and propose a revised answer.` });
+
+  // Iterative refinement. The model silently critiques the prior draft (and an
+  // alternate, when debating), then returns ONLY the improved standalone answer.
+  // The critique must NOT leak into the user-facing output — early versions of
+  // this prompt produced answers like "The original answer is correct, but...".
+  let refine =
+    `You previously drafted an answer to the user's request. Improve it.\n\n` +
+    `--- Your previous draft ---\n${best}\n--- End previous draft ---`;
   if (debate && last.candidates.length > 1) {
     const alt = last.candidates[1]?.text ?? "";
-    msgs.push({ role: "assistant", content: `Alternate draft from another model:\n\n${alt}\n\nDiscuss where it is better/worse and integrate improvements.` });
+    refine +=
+      `\n\n--- Another model's draft (for reference) ---\n${alt}\n--- End other draft ---\n\n` +
+      `Silently compare the two drafts and fold in whatever makes the answer stronger.`;
   }
+  refine +=
+    `\n\nReturn ONLY the final, improved answer to the user's original request. ` +
+    `Do not mention drafts, critiques, revisions, or this instruction. ` +
+    `Do not add prefaces like "Revised answer:". Just write the best possible answer directly.`;
+
+  msgs.push({ role: "user", content: refine });
   return msgs;
 }
 

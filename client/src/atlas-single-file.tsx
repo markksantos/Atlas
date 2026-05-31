@@ -7,13 +7,10 @@ Settings as SettingsIcon,
 Info,
 ChevronDown,
 Search,
-Share2,
-Filter,
 Download,
 Moon,
 Sun,
 KeyRound,
-CheckCircle2,
 Send,
 Loader2,
 X as XIcon,
@@ -194,6 +191,7 @@ const AppCtx = createContext<any>(null);
 function useApp() { return useContext(AppCtx); }
 
 function AppProvider({ children }: React.PropsWithChildren) {
+  const [route, setRoute] = useState("chat");
   const defaultSelected: Record<string, boolean> = { "openai:gpt-4o": true, "anthropic:claude-3.5-sonnet": true, "google:gemini-2.5-pro": true, "deepseek:r1": true };
   const [selectedModels, setSelectedModels] = useState<Record<string, boolean>>(() => { const map: Record<string, boolean> = {}; MODEL_CATALOG.forEach(m => map[m.id] = !!defaultSelected[m.id]); return map; });
   const [temp, setTemp] = useState(0.6);
@@ -228,14 +226,13 @@ function AppProvider({ children }: React.PropsWithChildren) {
     const next = presets.filter((p: any) => p.name !== name); setPresets(next); localStorage.setItem(PRESET_KEY, JSON.stringify(next)); show("Preset deleted");
   }
 
-  const value = useMemo(() => ({ selectedModels, setSelectedModels, temp, setTemp, maxTokens, setMaxTokens, timeoutSec, setTimeoutSec, tools, setTools, safety, setSafety, showWork, setShowWork, presets, saveCustomPreset, deleteCustomPreset, applyPreset, safeToggle, toastNode: node }), [selectedModels, temp, maxTokens, timeoutSec, tools, safety, showWork, presets, node]);
+  const value = useMemo(() => ({ route, setRoute, selectedModels, setSelectedModels, temp, setTemp, maxTokens, setMaxTokens, timeoutSec, setTimeoutSec, tools, setTools, safety, setSafety, showWork, setShowWork, presets, saveCustomPreset, deleteCustomPreset, applyPreset, safeToggle, toastNode: node }), [route, selectedModels, temp, maxTokens, timeoutSec, tools, safety, showWork, presets, node]);
   return <AppCtx.Provider value={value}>{children}</AppCtx.Provider>;
 }
 
 function AppShell() {
-  const [route, setRoute] = useState("chat");
   const { dark, setDark } = useDarkMode();
-  const { toastNode } = useApp();
+  const { toastNode, route, setRoute } = useApp();
   return (
   <div className="min-h-screen bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
     <div className="flex">
@@ -280,8 +277,8 @@ function Topbar({ dark, setDark }: { dark: boolean; setDark: (v: boolean) => voi
   return (
     <header className="flex items-center justify-between px-4 md:px-6 py-4 border-b border-neutral-200 dark:border-neutral-900">
       <div className="flex items-center gap-2">
-        <Badge variant="outline">Enterprise</Badge>
-        <Badge variant="outline">0% commissions</Badge>
+        <Badge variant="outline">Multi-model</Badge>
+        <Badge variant="outline">Bring your own keys</Badge>
         <Button size="sm" variant="secondary" onClick={() => (document.getElementById('codegen-modal') as HTMLDialogElement)?.showModal()}>Codegen</Button>
       </div>
       <div className="flex items-center gap-2">
@@ -390,33 +387,102 @@ function StepTicker({ step, round, totalRounds }: { step: number; round?: number
   );
 }
 
+function safeJsonParse<T>(value: string | null | undefined, fallback: T): T {
+  if (!value) return fallback;
+  try { return JSON.parse(value) as T; } catch { return fallback; }
+}
+
+/** Format a run's estimated cost (stored in cents, may be fractional). */
+function formatCost(cents: number): string {
+  const usd = (cents ?? 0) / 100;
+  if (usd <= 0) return "$0.00";
+  if (usd < 0.001) return "<$0.001";
+  return `$${usd.toFixed(usd < 1 ? 3 : 2)}`;
+}
+
 function RunsPage() {
   const [runs, setRuns] = useState<any[]>([]);
-  useEffect(() => { fetch("/api/runs").then(r => r.json()).then(d => setRuns(d.runs || [])); }, []);
+  const [query, setQuery] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [openId, setOpenId] = useState<number | null>(null);
+
+  // Debounced server-side search (the backend supports ?q= against prompts).
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    const t = setTimeout(() => {
+      const url = query.trim() ? `/api/runs?q=${encodeURIComponent(query.trim())}` : "/api/runs";
+      fetch(url)
+        .then(r => r.json())
+        .then(d => { if (!cancelled) setRuns(d.runs || []); })
+        .catch(() => { if (!cancelled) setRuns([]); })
+        .finally(() => { if (!cancelled) setLoading(false); });
+    }, 250);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [query]);
+
+  function exportRuns() {
+    const blob = new Blob([JSON.stringify(runs, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `atlas-runs-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <div className="flex flex-col md:flex-row md:items-center gap-3">
-        <div className="flex-1 flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
-            <Input className="pl-9" placeholder="Search prompts…" />
-          </div>
-          <Button variant="outline"><Filter className="h-4 w-4 mr-2" />Filter</Button>
+        <div className="relative flex-1">
+          <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+          <Input className="pl-9" placeholder="Search prompts…" value={query} onChange={(e) => setQuery(e.target.value)} />
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline"><Download className="h-4 w-4 mr-2" />Export</Button>
-          <Button variant="outline"><Share2 className="h-4 w-4 mr-2" />Share</Button>
+        <Button variant="outline" onClick={exportRuns} disabled={!runs.length}><Download className="h-4 w-4 mr-2" />Export</Button>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center gap-2 text-sm text-neutral-500"><Loader2 className="h-4 w-4 animate-spin" />Loading runs…</div>
+      ) : runs.length === 0 ? (
+        <Card><CardContent className="p-10 text-center text-sm text-neutral-500">
+          {query.trim() ? `No runs match “${query.trim()}”.` : "No runs yet. Ask something in Chat and it will appear here."}
+        </CardContent></Card>
+      ) : (
+        <div className="grid gap-3">
+          {runs.map((r) => {
+            const models = safeJsonParse<string[]>(r.models, []);
+            const isOpen = openId === r.id;
+            return (
+              <Card key={r.id}>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-sm line-clamp-1">{r.prompt}</div>
+                      <div className="text-xs text-neutral-500 mt-1">{r.created_at} • {models.length} model{models.length === 1 ? "" : "s"} • {r.status}</div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Badge variant="outline">{formatCost(r.cost_cents)}</Badge>
+                      <Button size="sm" variant="secondary" onClick={() => setOpenId(isOpen ? null : r.id)}>{isOpen ? "Close" : "Open"}</Button>
+                    </div>
+                  </div>
+                  {isOpen && (
+                    <div className="mt-4 border-t border-neutral-200 dark:border-neutral-800 pt-4 space-y-3">
+                      <div>
+                        <div className="text-xs font-medium text-neutral-500 mb-1">Models</div>
+                        <div className="flex flex-wrap gap-1.5">{models.map((m) => <Badge key={m} variant="outline">{m}</Badge>)}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs font-medium text-neutral-500 mb-1">Final answer</div>
+                        <p className="text-sm leading-relaxed whitespace-pre-wrap">{r.final_text || "(no answer recorded)"}</p>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
-      </div>
-      <div className="grid gap-3">
-        {runs.map((r, i) => (
-          <Card key={i}><CardContent className="p-4"><div className="flex items-center justify-between gap-3">
-            <div className="min-w-0"><div className="text-sm line-clamp-1">{r.prompt}</div>
-            <div className="text-xs text-neutral-500 mt-1">{r.created_at} • {JSON.parse(r.models || "[]").length} models • {r.status}</div></div>
-            <div className="flex items-center gap-2"><Badge variant="outline">${(r.cost_cents/100).toFixed(3)}</Badge><Button size="sm" variant="secondary">Open</Button></div>
-          </div></CardContent></Card>
-        ))}
-      </div>
+      )}
     </div>
   );
 }
@@ -540,6 +606,7 @@ function APIKeysSection() {
 }
 
 function AboutPage() {
+  const { setRoute } = useApp();
   return (
     <div className="relative">
       {/* Background visuals */}
@@ -672,9 +739,7 @@ function AboutPage() {
             <div className="text-sm text-neutral-500">Ready to try?</div>
             <div className="text-lg font-medium">Open chat and ask anything.</div>
           </div>
-          <a href="#" onClick={(e)=>{e.preventDefault(); (document.querySelector('[data-route="chat"]') as HTMLButtonElement)?.click();}}>
-            <Button>Open Chat</Button>
-          </a>
+          <Button onClick={() => setRoute("chat")}>Open Chat</Button>
         </div>
       </div>
     </div>

@@ -2,12 +2,23 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import { z } from "zod";
+import { existsSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { createDatabase } from "./lib/db.js";
 import { orchestrateChat } from "./lib/orchestrator.js";
 import { generateProjectFiles, planProjectFiles } from "./lib/codegen.js";
 import { saveZip } from "./lib/attachments.js";
 import { saveKeys, getKeys, clearKeys } from "./lib/keys.js";
 import { createRoutes } from "./routes.js";
+
+const isProduction = process.env.NODE_ENV === "production";
+const __dirname = dirname(fileURLToPath(import.meta.url));
+// In dev the Vite dev server runs separately; in production we serve the
+// pre-built static bundle from `dist/` (vite build output).
+const distDir = join(__dirname, "..", "dist");
+// Vite dev server port (see vite.config.ts). Used only for the dev redirect.
+const DEV_CLIENT_PORT = process.env.CLIENT_PORT ?? "5123";
 
 const app = express();
 app.use(cors());
@@ -17,11 +28,6 @@ const db = createDatabase();
 
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 app.use("/api", createRoutes(db));
-
-// Helpful redirect for dev: visiting the API root will open the UI
-app.get("/", (_req, res) => {
-  res.redirect(302, "http://localhost:5173/");
-});
 
 // Keys
 app.get("/api/keys", (_req, res) => {
@@ -54,8 +60,8 @@ app.post("/api/chat", async (req, res) => {
       tools: z.boolean().default(true),
       safety: z.boolean().default(true),
       showWork: z.boolean().default(false),
-      rounds: z.number().min(1).max(8).default(4),
-      minDurationSec: z.number().min(0).max(600).default(120),
+      rounds: z.number().min(1).max(8).default(2),
+      minDurationSec: z.number().min(0).max(600).default(0),
       debate: z.boolean().default(true),
       costCapUsd: z.number().min(0).max(20).default(1.0)
     })
@@ -97,7 +103,27 @@ app.post("/api/chat", async (req, res) => {
   }
 });
 
+// Static client. In production serve the built SPA from dist/ with a
+// catch-all fallback so client-side state (theme, route) survives a refresh.
+// In development, redirect the API root to the Vite dev server.
+if (isProduction && existsSync(distDir)) {
+  app.use(express.static(distDir));
+  app.get(/^(?!\/api).*/, (_req, res) => {
+    res.sendFile(join(distDir, "index.html"));
+  });
+} else {
+  app.get("/", (_req, res) => {
+    res.redirect(302, `http://localhost:${DEV_CLIENT_PORT}/`);
+  });
+}
+
 const PORT = process.env.PORT ? Number(process.env.PORT) : 4000;
-app.listen(PORT, () => console.log(`[server] listening on http://localhost:${PORT}`));
+app.listen(PORT, () => {
+  const mode = isProduction ? "production" : "development";
+  console.log(`[server] listening on http://localhost:${PORT} (${mode})`);
+  if (isProduction && !existsSync(distDir)) {
+    console.warn(`[server] WARNING: dist/ not found at ${distDir}. Run \`npm run build\` first.`);
+  }
+});
 
 
