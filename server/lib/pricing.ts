@@ -6,8 +6,8 @@ import type { ProviderResult } from "./providers.js";
  * included; everything else falls through to `undefined` and contributes $0
  * to the estimate (we'd rather under-report than invent a number).
  *
- * Mirrors the public OpenAI price list. Update alongside the UI catalog in
- * client/src/atlas-single-file.tsx.
+ * Mirrors the public OpenAI and Anthropic price lists. Update alongside the UI
+ * catalog in client/src/atlas-single-file.tsx.
  */
 const PRICE_PER_MILLION: Record<string, { input: number; output: number }> = {
   "openai:gpt-5": { input: 0.625, output: 5.0 },
@@ -27,7 +27,11 @@ const PRICE_PER_MILLION: Record<string, { input: number; output: number }> = {
   "openai:o4-mini": { input: 0.55, output: 2.2 },
   "openai:o4-mini-deep-research": { input: 1.0, output: 4.0 },
   "openai:o3-mini": { input: 0.55, output: 2.2 },
-  "openai:o1-mini": { input: 0.55, output: 2.2 }
+  "openai:o1-mini": { input: 0.55, output: 2.2 },
+  "anthropic:claude-fable-5-1": { input: 10.0, output: 50.0 },
+  "anthropic:claude-opus-5-5": { input: 4.0, output: 20.0 },
+  "anthropic:claude-sonnet-5": { input: 2.0, output: 10.0 },
+  "anthropic:claude-haiku-4-5": { input: 1.0, output: 5.0 }
 };
 
 /** USD cost of a single provider result based on its reported token usage. */

@@ -46,9 +46,11 @@ const MODEL_ID_MAP: Record<string, string> = {
   "openai:o3-mini": "o3-mini",
   "openai:o1-mini": "o1-mini",
 
-  // Anthropic — catalog uses friendly ids; API needs dated/`-latest` ids
-  "anthropic:claude-3-opus": "claude-3-opus-latest",
-  "anthropic:claude-3.5-sonnet": "claude-3-5-sonnet-latest",
+  // Anthropic — current models; Haiku 4.5 is pinned to its dated snapshot
+  "anthropic:claude-fable-5-1": "claude-fable-5-1",
+  "anthropic:claude-opus-5-5": "claude-opus-5-5",
+  "anthropic:claude-sonnet-5": "claude-sonnet-5",
+  "anthropic:claude-haiku-4-5": "claude-haiku-4-5-20251001",
 
   // Google
   "google:gemini-2.5-pro": "gemini-2.5-pro",
@@ -94,8 +96,10 @@ export const providerForModel: Record<string, ProviderCall> = {
   "openai:o1-mini": callOpenAI,
 
   // Anthropic
-  "anthropic:claude-3-opus": callAnthropic,
-  "anthropic:claude-3.5-sonnet": callAnthropic,
+  "anthropic:claude-fable-5-1": callAnthropic,
+  "anthropic:claude-opus-5-5": callAnthropic,
+  "anthropic:claude-sonnet-5": callAnthropic,
+  "anthropic:claude-haiku-4-5": callAnthropic,
 
   // Google
   "google:gemini-2.5-pro": callGoogle,
@@ -170,6 +174,9 @@ function extractResponsesText(resp: Record<string, unknown>): string {
   return "";
 }
 
+/** Claude Fable 5.1, Opus 5.5 and Sonnet 5 reject `temperature` with a 400; Haiku 4.5 accepts it. */
+const ANTHROPIC_NO_SAMPLING = new Set(["claude-fable-5-1", "claude-opus-5-5", "claude-sonnet-5"]);
+
 async function callAnthropic({ db, modelId, messages, temperature, maxTokens, timeoutMs }: Parameters<ProviderCall>[0]): Promise<ProviderResult> {
   const apiKey = getKey(db, "ANTHROPIC_API_KEY") || process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("Missing Anthropic API key");
@@ -180,10 +187,11 @@ async function callAnthropic({ db, modelId, messages, temperature, maxTokens, ti
   const safeMessages = first && first.role === "assistant"
     ? [{ role: "user" as const, content: first.content }, ...normalized.slice(1)]
     : normalized;
+  const model = apiModelId(modelId);
   const resp = await client.messages.create({
-    model: apiModelId(modelId),
+    model,
     max_tokens: maxTokens,
-    temperature,
+    ...(ANTHROPIC_NO_SAMPLING.has(model) ? {} : { temperature }),
     messages: safeMessages.map(m => ({ role: m.role, content: m.content }))
   });
   const text = resp.content
