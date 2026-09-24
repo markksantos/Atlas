@@ -20,7 +20,7 @@
 ## ✨ Features
 
 - **Multi-Model Chat** — Send prompts to multiple AI models simultaneously and compare responses
-- **Model Support** — OpenAI (GPT-5, GPT-4.1, o1, o3, o4-mini), Anthropic (Claude), Google (Gemini), and more
+- **Model Support** — OpenAI (GPT-5, GPT-4.1, o1, o3, o4-mini), Anthropic (Claude Fable 5.1, Opus 5.5, Sonnet 5, Haiku 4.5), Google (Gemini), and more
 - **Multi-Round Orchestration** — Generate, debate, critique, and revise across configurable rounds
 - **Code Generation** — Describe a project spec and generate complete file structures as downloadable ZIP
 - **Run History** — SQLite-backed history of all chat runs with search
@@ -125,8 +125,8 @@ a catch-all fallback, so the API and UI share one origin (no CORS, no proxy).
    coverage, length, low repetition).
 4. **Synthesize** — the top-ranked answer is returned as one clean response.
 
-Token usage is tracked per call and turned into a USD cost estimate (OpenAI list
-prices) shown on each run in **Runs**. Results stream to the client over SSE.
+Token usage is tracked per call and turned into a USD cost estimate (OpenAI and
+Anthropic list prices) shown on each run in **Runs**. Results stream to the client over SSE.
 
 ## 📁 Project Structure
 ```

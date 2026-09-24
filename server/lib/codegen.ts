@@ -103,7 +103,7 @@ function pickProviderModel(db: DB, selected?: string[]): string | null {
   // Prefer explicit selection if any
   if (selected && selected.length > 0) return selected[0]!;
   if (getKey(db, "OPENAI_API_KEY")) return "openai:gpt-4o";
-  if (getKey(db, "ANTHROPIC_API_KEY")) return "anthropic:claude-3.5-sonnet";
+  if (getKey(db, "ANTHROPIC_API_KEY")) return "anthropic:claude-sonnet-5";
   if (getKey(db, "GOOGLE_API_KEY")) return "google:gemini-2.5-pro";
   return null;
 }

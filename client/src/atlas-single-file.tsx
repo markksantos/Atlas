@@ -167,8 +167,10 @@ const MODEL_CATALOG = [
   { id: "openai:o3-mini", label: "o3-mini", provider: "OpenAI", pricing: { input: 0.55, cached: null, output: 2.2 }, speed: "fast", cost: "low", icon: "⚡" },
   { id: "openai:o1-mini", label: "o1-mini", provider: "OpenAI", pricing: { input: 0.55, cached: null, output: 2.2 }, speed: "fast", cost: "low", icon: "🧩" },
   // Anthropic
-  { id: "anthropic:claude-3-opus", label: "Claude 3 Opus", provider: "Anthropic", pricing: { input: null, cached: null, output: null }, speed: "slow", cost: "high", icon: "🧭" },
-  { id: "anthropic:claude-3.5-sonnet", label: "Claude 3.5 Sonnet", provider: "Anthropic", pricing: { input: null, cached: null, output: null }, speed: "fast", cost: "med", icon: "✍️" },
+  { id: "anthropic:claude-fable-5-1", label: "Claude Fable 5.1", provider: "Anthropic", pricing: { input: 10.0, cached: 0.25, output: 50.0 }, speed: "slow", cost: "high", icon: "📜" },
+  { id: "anthropic:claude-opus-5-5", label: "Claude Opus 5.5", provider: "Anthropic", pricing: { input: 4.0, cached: 0.2, output: 20.0 }, speed: "med", cost: "high", icon: "🧭" },
+  { id: "anthropic:claude-sonnet-5", label: "Claude Sonnet 5", provider: "Anthropic", pricing: { input: 2.0, cached: 0.2, output: 10.0 }, speed: "med", cost: "med", icon: "✍️" },
+  { id: "anthropic:claude-haiku-4-5", label: "Claude Haiku 4.5", provider: "Anthropic", pricing: { input: 1.0, cached: 0.1, output: 5.0 }, speed: "fast", cost: "low", icon: "🍃" },
   // Google
   { id: "google:gemini-2.5-pro", label: "Gemini 2.5 Pro", provider: "Google", pricing: { input: null, cached: null, output: null }, speed: "med", cost: "med", icon: "📄" },
   { id: "google:gemini-2.5-flash", label: "Gemini 2.5 Flash", provider: "Google", pricing: { input: null, cached: null, output: null }, speed: "fast", cost: "low", icon: "⚡" },
@@ -192,7 +194,7 @@ function useApp() { return useContext(AppCtx); }
 
 function AppProvider({ children }: React.PropsWithChildren) {
   const [route, setRoute] = useState("chat");
-  const defaultSelected: Record<string, boolean> = { "openai:gpt-4o": true, "anthropic:claude-3.5-sonnet": true, "google:gemini-2.5-pro": true, "deepseek:r1": true };
+  const defaultSelected: Record<string, boolean> = { "openai:gpt-4o": true, "anthropic:claude-sonnet-5": true, "google:gemini-2.5-pro": true, "deepseek:r1": true };
   const [selectedModels, setSelectedModels] = useState<Record<string, boolean>>(() => { const map: Record<string, boolean> = {}; MODEL_CATALOG.forEach(m => map[m.id] = !!defaultSelected[m.id]); return map; });
   const [temp, setTemp] = useState(0.6);
   const [maxTokens, setMaxTokens] = useState(800);
@@ -493,9 +495,9 @@ function SettingsPage() {
   const [newPresetName, setNewPresetName] = useState("");
 
   const presetsBuiltIn = [
-    { name: "Smart core", ids: ["openai:gpt-4o","anthropic:claude-3.5-sonnet","google:gemini-2.5-pro","deepseek:r1","z:latest"] },
+    { name: "Smart core", ids: ["openai:gpt-4o","anthropic:claude-sonnet-5","google:gemini-2.5-pro","deepseek:r1","z:latest"] },
     { name: "Deep thinker", ids: ["openai:gpt-5","openai:o3-deep-research","google:gemini-2.5-pro","xai:grok-4","deepseek:r1"] },
-    { name: "Everyday", ids: ["openai:gpt-4o","anthropic:claude-3.5-sonnet","google:gemini-2.5-flash","xai:grok-3","kimi:k2"] },
+    { name: "Everyday", ids: ["openai:gpt-4o","anthropic:claude-sonnet-5","google:gemini-2.5-flash","xai:grok-3","kimi:k2"] },
     { name: "Blazing fast", ids: ["openai:gpt-5-nano","openai:gpt-4.1-nano","openai:o3-mini","google:gemini-2.5-flash","xai:grok-3"] },
     { name: "Select all", ids: MODEL_CATALOG.map(m => m.id) },
     { name: "Clear all", ids: [] },
@@ -821,7 +823,7 @@ function useDesignSmokeTests() {
   useEffect(() => {
     try {
       console.assert(Array.isArray(MODEL_CATALOG) && MODEL_CATALOG.length > 0, "Model catalog exists");
-      ["openai:gpt-4o","anthropic:claude-3.5-sonnet","google:gemini-2.5-pro","xai:grok-4","z:latest","kimi:k2","qwen:latest"].forEach(id => {
+      ["openai:gpt-4o","anthropic:claude-sonnet-5","google:gemini-2.5-pro","xai:grok-4","z:latest","kimi:k2","qwen:latest"].forEach(id => {
         console.assert(MODEL_CATALOG.some((m) => m.id === id), `Model missing: ${id}`);
       });
       console.log("[UI smoke tests] basic checks passed ✅");

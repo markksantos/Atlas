@@ -24,8 +24,16 @@ describe("costForResult", () => {
     expect(big).toBeCloseTo(small * 10, 9);
   });
 
+  it("computes cost for current Claude models", () => {
+    // 1M in + 1M out at Anthropic list prices ($/1M input + $/1M output).
+    expect(costForResult(result("anthropic:claude-fable-5-1", 1_000_000, 1_000_000))).toBeCloseTo(60, 6);
+    expect(costForResult(result("anthropic:claude-opus-5-5", 1_000_000, 1_000_000))).toBeCloseTo(24, 6);
+    expect(costForResult(result("anthropic:claude-sonnet-5", 1_000_000, 1_000_000))).toBeCloseTo(12, 6);
+    expect(costForResult(result("anthropic:claude-haiku-4-5", 1_000_000, 1_000_000))).toBeCloseTo(6, 6);
+  });
+
   it("returns 0 for models with no published price", () => {
-    expect(costForResult(result("anthropic:claude-3.5-sonnet", 1000, 1000))).toBe(0);
+    expect(costForResult(result("xai:grok-4", 1000, 1000))).toBe(0);
     expect(costForResult(result("google:gemini-2.5-pro", 1000, 1000))).toBe(0);
   });
 
@@ -43,7 +51,7 @@ describe("totalCostUsd", () => {
   it("sums across results, ignoring unpriced ones", () => {
     const total = totalCostUsd([
       result("openai:gpt-4o-mini", 1_000_000, 1_000_000), // 0.375
-      result("anthropic:claude-3.5-sonnet", 1_000_000, 1_000_000), // 0 (unpriced)
+      result("xai:grok-4", 1_000_000, 1_000_000), // 0 (unpriced)
       result("openai:gpt-4o-mini", 1_000_000, 1_000_000) // 0.375
     ]);
     expect(total).toBeCloseTo(0.75, 6);
